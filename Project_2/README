@@ -1,0 +1,9 @@
+
+Instructions: add to your .bashrc 
+Anywhere in file
+`export LD_LIBRARY_PATH=/home/mshlimen/CSC_453/Project_2/lib64``
+**Sets shared libraries path to use executables**
+
+Type `source ~/.bashrc`
+
+Confirm path `echo $LD_LIBRARY_PATH`
