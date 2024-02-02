@@ -1,4 +1,4 @@
-#include "lwp.h"
+#include "/Asgn2/include/lwp.h"
 
 // Creating new Lightweight Process, Adds to Scheduler, But does not run it 
 tid_t lwp_create(lwmpfun function, void *argument) {
