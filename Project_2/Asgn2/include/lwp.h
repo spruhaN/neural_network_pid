@@ -11,7 +11,7 @@
 
 
 #if defined(__x86_64)
-#include <fp.h>
+#include "fp.h"
 typedef struct __attribute__ ((aligned(16))) __attribute__ ((packed))
 registers {
   unsigned long rax;            /* the sixteen architecturally-visible regs. */
