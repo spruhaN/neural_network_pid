@@ -1,0 +1,31 @@
+Mac installation instructions 
+
+1.  install Mac Crosspack:  http://www.obdev.at/products/crosspack/index.html
+
+  This will install gcc for the AVR microcontroller and other related tools.
+
+2.  plug in the board and turn the board on
+
+3.  edit the Makefile
+
+  Find the 'program_mac' target in the Makefile in this directory and change the device to the usb device on your computer.  It should look something like this:  /dev/tty.usbserial-A602FK45.  Look for the device in the /dev directory and it should show up as something with tty.usbserial.
+
+4.  type 'make' to compile the code in this directory
+
+5.  type 'make program_mac' to flash the microcontroller.
+
+  The board should start running your code once the flashing is complete.
+
+--------------------------------------------------------------------------
+
+Linux installation instructions
+
+1.  install the avr toolchain on Ubuntu using:  
+
+   apt-get install avrdude binutils-avr avr-libc gcc-avr
+
+2.  plug in the board and turn the board on
+
+3.  follow steps 3-5 from the Mac instructions
+
+   NOTE:  The device on Ubuntu may look like /dev/ttyUSB0.
