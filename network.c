@@ -20,6 +20,8 @@ State curr_state = PROPORTIONAL;
 float integral = 0.0;
 float prev_err = 0.0;
 
+scheduler our_linked_list;
+
 int main(void){
 
     while(1){ // do we want while in cases or in state
@@ -44,12 +46,37 @@ int main(void){
 
             case DATA:
                 // clear screen and print 00 Data
+                lcd_cursor(0, 0);
+                print_string("DATA");
+
                 // stops motors
+                motor(0, 0);
+                motor(1, 0);
+
+                int n = 0;
                 // repeat 
                     // print 50 inc 
+                    lcd_cursor(5, 0);
+                    print_num(n);
+
                     // get sensor data 
+                    int left = analog(2);
+                    int right = analog(3);
+
                     // print 01 left sensor 05 right sensor
-                    // stores input pairs needs to be dynamic(linked or realloc?)
+                    lcd_cursor(0, 1);
+                    print_num(left);
+
+                    lcd_cursor(5, 1);
+                    print_num(right);
+
+                    // add Tuple to linked list 
+                    Tuple* new_tuple = (Tuple*)malloc(sizeof(Tuple));
+                    //new_tuple = &new_tuple;
+                    new_tuple->left = left;
+                    new_tuple->right = right;
+
+                    our_linked_list->admit(*new_tuple);
 
                     // once finished -> EPOCH
                 break;
@@ -147,3 +174,83 @@ void print_value(int val, int val2){
    //_delay_ms(1000);
    clear_screen();
 }
+
+
+
+// LINKED LIST
+
+struct Queue *queue;
+
+// adds node to tail
+void rr_enqueue(Tuple new) {
+    struct Node *new_tail = (struct Node *)malloc(sizeof(struct Node));
+
+    // initialize the new Node
+    new_tail->sensor_values = new;
+    new_tail->next = NULL;
+
+    // check if the queue is empty
+    if (queue == NULL || queue->head == NULL) {
+        if(queue == NULL){
+            queue = (struct Queue *)malloc(sizeof(struct Queue));
+            (*queue).head = NULL;
+            (*queue).tail = NULL;
+        }
+
+        queue->head = new_tail;
+        queue->tail = new_tail;
+        // update the tail pointer to the new Node
+        queue->tail->next = NULL;
+    } else {
+        // update the next pointer of the current tail
+        queue->tail->next = new_tail;
+        // update the tail pointer to the new Node
+        queue->tail = new_tail;
+    }
+}
+
+// removes Tuple from queue
+struct Node* rr_dequeue() {
+    struct Node *old_Tuple_node = queue->head;
+    if (queue->head == NULL){
+        fprintf(stderr, "Dequeuing from empty queue\n");
+        return NULL;
+    }
+    queue->head = queue->head->next;
+    return old_Tuple_node;
+}
+
+// enqueues new Tuple to queue
+void rr_admit(Tuple new) {
+    rr_enqueue(new);
+}
+
+// removes Tuple from front of queue
+void rr_remove(Tuple victim) {
+    Node *victim_node = rr_dequeue();
+    free(victim_node);
+}
+
+// moves queue over
+Tuple rr_next() {
+    if(queue->head){
+        return queue->head->sensor_values;
+    }
+    else{
+        print_string("error");
+    }
+}
+
+// gets length of queue
+int rr_qlen(void) {
+    int counter = 0;
+    struct Node* temp = queue->head;
+    while(temp){
+        counter++;
+        temp = temp->next;
+    }
+    return counter;
+}
+
+struct scheduler roundrobin = {rr_admit, rr_remove, rr_next, rr_qlen};
+scheduler round_r = &roundrobin;

@@ -35,6 +35,34 @@ typedef struct OutputNeuron{
     float bias;
 }outNeuron;
 
+typedef struct Node {
+    Tuple sensor_values;
+    struct Node *next;
+} Node;
+
+typedef struct Queue {
+    struct Node *head;
+    struct Node *tail;
+} Queue;
+
+/* Tuple that describes a scheduler */
+typedef struct scheduler {
+  void   (*admit)(Tuple new);     /* add a Tuple to the pool      */
+  void   (*remove)(Tuple victim); /* remove a Tuple from the pool */
+  Tuple (*next)(void);            /* select a Tuple to schedule   */
+  int    (*qlen)(void);            /* number of ready Tuples       */
+} *scheduler;
+
+void rr_admit(Tuple new);
+void rr_remove(Tuple victim);
+Tuple rr_next();
+int rr_qlen(void);
+void rr_enqueue(Tuple new);
+struct Node* rr_dequeue();
+
+struct Queue *queue;
+extern struct scheduler roundrobin;
+extern scheduler round_r;
 
 Tuple compute_proportional(int left_val, int right_val);
 
