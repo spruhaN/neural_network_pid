@@ -45,3 +45,7 @@ int constrain(int value, int minVal, int maxVal);
 void motor(u08 num, int8_t speed);
 
 void print_value(int val, int val2); // for debugging
+
+void init_hidden_neuron(hiddenNeuron *neuron);
+
+void init_output_neuron(outNeuron *neuron);
