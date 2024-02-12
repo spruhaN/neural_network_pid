@@ -147,18 +147,16 @@ int main(void){
                     init_output_neuron(&o1);
                     init_output_neuron(&o2);
 
-                    // turn into list of h neurons and o neurons
-
-
                     // for set epoch
                     for (int e = 0; e<epoch; e++){
                         // for each input pair (scale down 0-1)
                         for (int i = 0; i< 2; i++){ // change to queue length
                             // dequeue first element in queue store as Tuple
+                            // sarah use ur queue magic
                             Tuple input_pair;
 
                             // trains neural network and updates all weights and biases need to pass neurons by ref
-                            train_neural_network(input_pair);
+                            train_neural_network(input_pair, &o1, &o2, &h1, &h2, &h3);
                         }
                     }
                     // when finished -> NEURAL or break
@@ -212,7 +210,6 @@ void train_neural_network(Tuple input_pair, outNeuron* o1, outNeuron* o2, hidden
     output_pair = compute_proportional(input_pair.left, input_pair.right);
 
     // compute out neuron weight and bias x2 store in struct
-    // 
     compute_output_neuron(output_pair,o1,&update_o1);
     compute_output_neuron(output_pair,o2,&update_o2);
     
@@ -221,13 +218,28 @@ void train_neural_network(Tuple input_pair, outNeuron* o1, outNeuron* o2, hidden
     compute_hidden_neuron(output_pair,h2,&update_h2);
     compute_hidden_neuron(output_pair,h3,&update_h3);
 
-    // update all 17 weights and biases ( then need ref )
+    // update all 17 weights and biases
     o1->w1 = update_o1.w1;
+    o1->w2 = update_o1.w2;
+    o1->w3 = update_o1.w3;
+    o1->bias = update_o1.bias;
+
+    o2->w1 = update_o2.w1;
     o2->w2 = update_o2.w2;
-    o1->w3 = update_o3.w3;
-    o1->w1 = update_o1.w1;
-    o1->w1 = update_o1.w1;
-    o1->w1 = update_o1.w1;
+    o2->w3 = update_o2.w3;
+    o2->bias = update_o2.bias;
+
+    h1->w1 = update_h1.w1;
+    h1->w2 = update_h1.w2;
+    h1->bias = update_h1.bias;
+
+    h2->w1 = update_h2.w1;
+    h2->w2 = update_h2.w2;
+    h2->bias = update_h2.bias;
+
+    h3->w1 = update_h3.w1;
+    h3->w2 = update_h3.w2;
+    h3->bias = update_h3.bias;
 }
 
 Tuple compute_proportional(int left_val, int right_val) {
