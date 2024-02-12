@@ -16,12 +16,14 @@ typedef enum {
     NEURAL
 } State;
 
-typedef struct mv {
+typedef struct mv{
     int left;
     int right;
 }Tuple;
 
-
+/**
+ * the hidden neuron which should be initialized with random values
+*/
 typedef struct HiddenNeuron{
     float w1;  // left sensor
     float w2; // right sensor

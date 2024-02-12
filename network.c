@@ -21,6 +21,8 @@ float integral = 0.0;
 float prev_err = 0.0;
 
 int main(void){
+    int epoch = 5;
+    int button_state = 0;
 
     while(1){ // do we want while in cases or in state
         switch (curr_state){
@@ -39,6 +41,12 @@ int main(void){
                         motor(1, motor_values.right);
 
                         // if button pressed -> DATA (? we need to make sure its properly registered ?)
+                        if (get_btn() & (button_state == 0)){ // if button is pressed for the first time
+                            button_state = 1;
+                        }else if (!get_btn() & (button_state == 1)){ // if button is released (has been pressed before and is currently not pressed)
+                            button_state = 0;
+                            curr_state = DATA;
+                        }
                     }
                 break;
 
@@ -55,11 +63,29 @@ int main(void){
                 break;
     
             case EPOCH:
-                // clear screen print 00 Training_0
-                // repeat
+                {
+                    // clear screen print 00 Training_0
+                    clear_screen();
+                    lcd_cursor(0,0);
+                    print_string("Training_0");
+
                     // get accel
-                    // print scaled epoch
+                    int y_loc = get_accel_y();
+
+                    // scale epoch
+                    if(y_val > 15 && y_val < 60){ //left
+                        epoch--;
+                    }else if(y_val < 235 && y_val > 190){ // right
+                        epoch++;
+                    }
+
+                     // print epoch
+                    lcd_cursor(0,1)
+                    print_num(epoch);
+
                     // if button is pressed -> set scaled epoch -> TRAINING
+                    _delay_ms(100);
+                }
                 break;
 
             case TRAINING:
