@@ -20,6 +20,8 @@ State curr_state = PROPORTIONAL;
 float integral = 0.0;
 float prev_err = 0.0;
 
+scheduler our_linked_list;
+
 int main(void){
     int epoch = 5;
     int button_state = 0;
@@ -57,14 +59,41 @@ int main(void){
                 }
 
             case DATA:
+                {
                 // clear screen and print 00 Data
+                clear_screen();
+                lcd_cursor(0, 0);
+                print_string("Data");
+
                 // stops motors
+                motor(0, 0);
+                motor(1, 0);
+
+                int n = 0;
                 // repeat 
                     // print 50 inc 
-                    // get sensor data 
-                    // print 01 left sensor 05 right sensor
-                    // stores input pairs needs to be dynamic queue
+                    lcd_cursor(5, 0);
+                    print_num(n);
 
+                    // get sensor data 
+                    int left = analog(2);
+                    int right = analog(3);
+
+                    // print 01 left sensor 05 right sensor
+                    lcd_cursor(0, 1);
+                    print_num(left);
+
+                    lcd_cursor(5, 1);
+                    print_num(right);
+
+                    // add Tuple to linked list 
+                    Tuple* new_tuple = (Tuple*)malloc(sizeof(Tuple));
+                    //new_tuple = &new_tuple;
+                    new_tuple->left = left;
+                    new_tuple->right = right;
+
+                    our_linked_list->admit(*new_tuple);
+}
                     // once finished -> EPOCH
                 break;
     
@@ -120,6 +149,7 @@ int main(void){
 
                     // turn into list of h neurons and o neurons
 
+
                     // for set epoch
                     for (int e = 0; e<epoch; e++){
                         // for each input pair (scale down 0-1)
@@ -127,7 +157,7 @@ int main(void){
                             // dequeue first element in queue store as Tuple
                             Tuple input_pair;
 
-                            // trains neural network and updates all weights and biases
+                            // trains neural network and updates all weights and biases need to pass neurons by ref
                             train_neural_network(input_pair);
                         }
                     }
@@ -174,22 +204,30 @@ int main(void){
     return 0;
 }
 
-void train_neural_network(Tuple input_pair){ // need to pass neurons by reference
+void train_neural_network(Tuple input_pair, outNeuron* o1, outNeuron* o2, hiddenNeuron* h1, hiddenNeuron* h2, hiddenNeuron* h3){ // need to pass neurons by reference
+    outNeuron update_o1,update_o2;
+    hiddenNeuron update_h1, update_h2, update_h3;
 
     // run on compute and get output pair (?)
     output_pair = compute_proportional(input_pair.left, input_pair.right);
 
-    // compute out neuron weight and bias x2 store in struct ( pass by val )
-    // can we also initilaize a new output neuron that stores all these values and then replace old with new at end?
-    updatedNeuron update_o1 = compute_output_neuron(output_pair, o1);
-    updatedNeuron update_o2 = compute_output_neuron(output_pair, o2);
+    // compute out neuron weight and bias x2 store in struct
+    // 
+    compute_output_neuron(output_pair,o1,&update_o1);
+    compute_output_neuron(output_pair,o2,&update_o2);
     
     // compute hidden neuron weight and bias x3 store in struct ( " )
-    updatedNeuron update_h1 = compute_hidden_neuron(output_pair, h1);
-    updatedNeuron update_h2 = compute_hidden_neuron(output_pair, h2);
-    updatedNeuron update_h3 = compute_hidden_neuron(output_pair, h3);
+    compute_hidden_neuron(output_pair,h1,&update_h1);
+    compute_hidden_neuron(output_pair,h2,&update_h2);
+    compute_hidden_neuron(output_pair,h3,&update_h3);
 
     // update all 17 weights and biases ( then need ref )
+    o1->w1 = update_o1.w1;
+    o2->w2 = update_o2.w2;
+    o1->w3 = update_o3.w3;
+    o1->w1 = update_o1.w1;
+    o1->w1 = update_o1.w1;
+    o1->w1 = update_o1.w1;
 }
 
 Tuple compute_proportional(int left_val, int right_val) {
@@ -259,3 +297,83 @@ void print_value(int val, int val2){
    //_delay_ms(1000);
    clear_screen();
 }
+
+
+
+// LINKED LIST
+
+struct Queue *queue;
+
+// adds node to tail
+void rr_enqueue(Tuple new) {
+    struct Node *new_tail = (struct Node *)malloc(sizeof(struct Node));
+
+    // initialize the new Node
+    new_tail->sensor_values = new;
+    new_tail->next = NULL;
+
+    // check if the queue is empty
+    if (queue == NULL || queue->head == NULL) {
+        if(queue == NULL){
+            queue = (struct Queue *)malloc(sizeof(struct Queue));
+            (*queue).head = NULL;
+            (*queue).tail = NULL;
+        }
+
+        queue->head = new_tail;
+        queue->tail = new_tail;
+        // update the tail pointer to the new Node
+        queue->tail->next = NULL;
+    } else {
+        // update the next pointer of the current tail
+        queue->tail->next = new_tail;
+        // update the tail pointer to the new Node
+        queue->tail = new_tail;
+    }
+}
+
+// removes Tuple from queue
+struct Node* rr_dequeue() {
+    struct Node *old_Tuple_node = queue->head;
+    if (queue->head == NULL){
+        fprintf(stderr, "Dequeuing from empty queue\n");
+        return NULL;
+    }
+    queue->head = queue->head->next;
+    return old_Tuple_node;
+}
+
+// enqueues new Tuple to queue
+void rr_admit(Tuple new) {
+    rr_enqueue(new);
+}
+
+// removes Tuple from front of queue
+void rr_remove(Tuple victim) {
+    Node *victim_node = rr_dequeue();
+    free(victim_node);
+}
+
+// moves queue over
+Tuple rr_next() {
+    if(queue->head){
+        return queue->head->sensor_values;
+    }
+    else{
+        print_string("error");
+    }
+}
+
+// gets length of queue
+int rr_qlen(void) {
+    int counter = 0;
+    struct Node* temp = queue->head;
+    while(temp){
+        counter++;
+        temp = temp->next;
+    }
+    return counter;
+}
+
+struct scheduler roundrobin = {rr_admit, rr_remove, rr_next, rr_qlen};
+scheduler round_r = &roundrobin;

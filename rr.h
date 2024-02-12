@@ -14,7 +14,7 @@
 // add our linked list struct here
 //typedef struct Node*;
 typedef struct Node {
-    thread current_thread;
+    Tuple sensor_values;
     struct Node *next;
 } Node;
 
@@ -23,9 +23,6 @@ typedef struct Queue {
     struct Node *tail;
 } Queue;
 
-
-//void rr_init();
-//void rr_shutdown();
 void rr_admit(thread new);
 void rr_remove(thread victim);
 thread rr_next();
