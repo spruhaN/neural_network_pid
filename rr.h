@@ -24,7 +24,7 @@ typedef struct Queue {
 } Queue;
 
 void rr_admit(thread new);
-void rr_remove(thread victim);
+void rr_remove();
 thread rr_next();
 int rr_qlen(void);
 void rr_enqueue(thread new);

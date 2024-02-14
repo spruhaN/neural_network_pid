@@ -48,7 +48,7 @@ void rr_admit(Tuple new) {
 }
 
 // removes Tuple from front of queue
-void rr_remove(Tuple victim) {
+void rr_remove() {
     Node *victim_node = rr_dequeue();
     free(victim_node);
 }

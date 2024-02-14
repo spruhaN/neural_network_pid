@@ -45,13 +45,14 @@ typedef struct Queue {
 /* Tuple that describes a scheduler */
 typedef struct scheduler {
   void   (*admit)(Tuple new);     /* add a Tuple to the pool      */
-  void   (*remove)(Tuple victim); /* remove a Tuple from the pool */
+  void   (*remove)(); /* remove a Tuple from the pool */
   Tuple (*next)(void);            /* select a Tuple to schedule   */
   int    (*qlen)(void);            /* number of ready Tuples       */
+  struct Node* (*dequeue)(void);
 } *scheduler;
 
 void rr_admit(Tuple new);
-void rr_remove(Tuple victim);
+void rr_remove();
 Tuple rr_next();
 int rr_qlen(void);
 void rr_enqueue(Tuple new);
@@ -69,6 +70,14 @@ void motor(u08 num, int8_t speed);
 
 void print_value(int val, int val2); // for debugging
 
-void init_hidden_neuron(hiddenNeuron *neuron);
+void init_hidden_neuron(HiddenNeuron *neuron);
 
-void init_output_neuron(outNeuron *neuron);
+void init_output_neuron(OutputNeuron *neuron);
+
+void train_neural_network(Tuple input_pair, HiddenNeuron* hidden_neurons[], OutputNeuron* output_neurons[]);
+
+Tuple compute_neural_network(Tuple input_pair, HiddenNeuron* hidden_neurons[], OutputNeuron* output_neurons[]);
+
+void update_all(HiddenNeuron* hidden_neurons[], OutputNeuron* output_neurons[], HiddenNeuron hidden_update_neurons[], OutputNeuron output_update_neurons[]);
+
+float sigmoid(float x);

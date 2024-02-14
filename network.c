@@ -160,10 +160,10 @@ int main(void){
                     // for set epoch
                     for (int e = 0; e<epoch; e++){
                         // for each input pair (scale down 0-1)
-                        for (int i = 0; i< round_r->rr_qlen(); i++){ // change to queue length
+                        for (int i = 0; i< round_r->qlen(); i++){ // change to queue length
                             // dequeue first element in queue store as Tuple
                             // sarah use ur queue magic
-                            Tuple input_pair = round_r->dequeue();
+                            Tuple input_pair = round_r->dequeue()->sensor_values;
                             round_r->remove();
 
                             // trains neural network and updates all weights and biases need to pass neurons by ref
@@ -186,7 +186,10 @@ int main(void){
                     float right_sensor = ((float)analog(3))/255.0;
 
                     // compute_neural_network ==> forward pass
-                    Tuple motor_values = compute_neural_network(left_sensor, right_sensor);
+                    Tuple input_pair;
+                    input_pair.left = left_sensor;
+                    input_pair.right = right_sensor;
+                    Tuple motor_values = compute_neural_network(input_pair, hidden_neurons, output_neurons);
 
                     // set motors to sensor output
                     motor(0,motor_values.left);
@@ -252,7 +255,7 @@ Tuple compute_neural_network(Tuple input_pair, HiddenNeuron* hidden_neurons[], O
 }
 
 void train_neural_network(Tuple input_pair, HiddenNeuron* hidden_neurons[], OutputNeuron* output_neurons[]){ // need to pass neurons by reference
-    OutputNeuron update_o1,update_o2;
+    OutputNeuron update_o1, update_o2;
     HiddenNeuron update_h1, update_h2, update_h3;
 
     OutputNeuron output_update_neurons[] = {update_o1, update_o2};
@@ -315,8 +318,6 @@ void train_neural_network(Tuple input_pair, HiddenNeuron* hidden_neurons[], Outp
         // NO INPUT VAL FOR BIAS ???
         hidden_update_neurons[i].bias = calculate_hidden_weight(sum_out, hidden_out[i], 0, hidden_neurons[i]->bias);
     }
-    
-
     // update all 17 weights and biases
     update_all(hidden_neurons,output_neurons,hidden_update_neurons,output_update_neurons);
 }
@@ -462,7 +463,7 @@ void rr_admit(Tuple new) {
 }
 
 // removes Tuple from front of queue
-void rr_remove(Tuple victim) {
+void rr_remove() {
     Node *victim_node = rr_dequeue();
     free(victim_node);
 }
@@ -488,5 +489,5 @@ int rr_qlen(void) {
     return counter;
 }
 
-struct scheduler roundrobin = {rr_admit, rr_remove, rr_next, rr_qlen};
+struct scheduler roundrobin = {rr_admit, rr_remove, rr_next, rr_qlen, rr_dequeue};
 scheduler round_r = &roundrobin;
