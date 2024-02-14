@@ -3,6 +3,7 @@
 #include "network.h"
 
 #include <stdio.h>
+#include <math.h>
 #include <stdlib.h>
 #include <time.h>
 #include <stdbool.h>
@@ -15,18 +16,26 @@
 #define Ki 0
 #define Kd 0
 
+#define LEARNING_RATE .003
+#define NUM_OUT_NEURONS 2
+#define NUM_HIDDEN_NEURONS 3
+
 State curr_state = PROPORTIONAL;
+
+scheduler our_linked_list;
 
 float integral = 0.0;
 float prev_err = 0.0;
 
-scheduler our_linked_list;
-
 int main(void){
     int epoch = 5;
     int button_state = 0;
-    hiddenNeuron h1,h2,h3;
-    outNeuron o1,o2;
+    HiddenNeuron h1,h2,h3;
+    OutputNeuron o1,o2;
+
+    // make a list of the hidden and output references to pass into functions
+    HiddenNeuron* hidden_neurons[] = {&h1,&h2,&h3};
+    OutputNeuron* output_neurons[] = {&o1,&o2};
 
     // random time seed
     srand(time(NULL));
@@ -93,7 +102,7 @@ int main(void){
                     new_tuple->right = right;
 
                     our_linked_list->admit(*new_tuple);
-}
+                    }
                     // once finished -> EPOCH
                 break;
     
@@ -105,7 +114,7 @@ int main(void){
                     print_string("Training_0");
 
                     // get accel
-                    int y_loc = get_accel_y();
+                    int y_val = get_accel_y();
 
                     // scale epoch
                     if(y_val > 15 && y_val < 60){ // left
@@ -115,7 +124,7 @@ int main(void){
                     }
 
                      // print epoch
-                    lcd_cursor(0,1)
+                    lcd_cursor(0,1);
                     print_num(epoch);
 
                     // if button is pressed -> set scaled epoch -> TRAINING
@@ -152,11 +161,10 @@ int main(void){
                         // for each input pair (scale down 0-1)
                         for (int i = 0; i< 2; i++){ // change to queue length
                             // dequeue first element in queue store as Tuple
-                            // sarah use ur queue magic
                             Tuple input_pair;
 
                             // trains neural network and updates all weights and biases need to pass neurons by ref
-                            train_neural_network(input_pair, &o1, &o2, &h1, &h2, &h3);
+                            train_neural_network(input_pair, hidden_neurons, output_neurons);
                         }
                     }
                     // when finished -> NEURAL or break
@@ -174,7 +182,7 @@ int main(void){
                     float left_sensor = ((float)analog(2))/255.0;
                     float right_sensor = ((float)analog(3))/255.0;
 
-                    // compute_neural_network ==> (? lol what ?)
+                    // compute_neural_network ==> forward pass
                     Tuple motor_values = compute_neural_network(left_sensor, right_sensor);
 
                     // set motors to sensor output
@@ -194,7 +202,7 @@ int main(void){
                 // clear screen print 00 Error
                 {
                     clear_screen();
-                    lcd_cursor(0,0;);
+                    lcd_cursor(0,0);
                     print_string("ERR");
                 }
         }
@@ -202,44 +210,134 @@ int main(void){
     return 0;
 }
 
-void train_neural_network(Tuple input_pair, outNeuron* o1, outNeuron* o2, hiddenNeuron* h1, hiddenNeuron* h2, hiddenNeuron* h3){ // need to pass neurons by reference
-    outNeuron update_o1,update_o2;
-    hiddenNeuron update_h1, update_h2, update_h3;
+float calculate_output_weight(float net, float hidden_out, float old_weight){
+    float sum = net * (hidden_out);
+    return old_weight - (LEARNING_RATE * sum);
+}
+
+float calculate_hidden_weight(float sum_out, float hidden_out, float input_sensor, float old_weight){
+    float sum = sum_out * (hidden_out * (1-hidden_out)) * input_sensor;
+    return old_weight - (LEARNING_RATE * sum);
+}
+
+Tuple compute_neural_network(Tuple input_pair, HiddenNeuron* hidden_neurons[], OutputNeuron* output_neurons[]){
+    float sensor_pair[] = {input_pair.left, input_pair.right};
+    // find outputs for each hidden neuron
+    float hidden_out[NUM_HIDDEN_NEURONS] = {0};
+    for(int i = 0; i < NUM_HIDDEN_NEURONS; i++){
+        // for each hidden neuron we sum the net a1(left sensor) * w1 + a2(right sensor) * w2 - bias and pass through sigmoid
+        float input = (sensor_pair[0] * hidden_neurons[i]->w[0]) + (sensor_pair[1] * hidden_neurons[i]->w[1]) - hidden_neurons[i]->bias;
+        hidden_out[i] = sigmoid(input);
+    }
+
+    // pass through output neurons and get actual
+    float actual_pair[NUM_OUT_NEURONS] = {0};
+    for(int i = 0; i  < NUM_OUT_NEURONS; i++){
+        // for each output neuron we look at the weight with prev linked hidden and multiply with the prev calc output
+        float input = 0;
+        for (int j = 0; j < NUM_HIDDEN_NEURONS; j++){
+            input += hidden_out[j] * output_neurons[i]->w[j];
+        }
+        input += output_neurons[i]->bias;
+        actual_pair[i] = sigmoid(input);
+    }
+
+    Tuple motor;
+    motor.left = actual_pair[0];
+    motor.right = actual_pair[1];
+    return motor;
+}
+
+void train_neural_network(Tuple input_pair, HiddenNeuron* hidden_neurons[], OutputNeuron* output_neurons[]){ // need to pass neurons by reference
+    OutputNeuron update_o1,update_o2;
+    HiddenNeuron update_h1, update_h2, update_h3;
+
+    OutputNeuron output_update_neurons[] = {update_o1, update_o2};
+    HiddenNeuron hidden_update_neurons[] = {update_h1, update_h2, update_h3};
+
+    float out_net[NUM_OUT_NEURONS] = {0};
 
     // run on compute and get output pair (?)
-    output_pair = compute_proportional(input_pair.left, input_pair.right);
+    Tuple output_pair = compute_proportional(input_pair.left, input_pair.right);
 
-    // compute out neuron weight and bias x2 store in struct
-    compute_output_neuron(output_pair,o1,&update_o1);
-    compute_output_neuron(output_pair,o2,&update_o2);
+    // either make struct better[make list of two] or remove tuple later...
+    float sensor_pair[] = {input_pair.left/255.0, input_pair.right/255.0}; 
+    float target_pair[] = {output_pair.left, output_pair.right};
+
+    // FORWARD PASS (try to make this a function) but we need to access hidden out and actual pair
+    // find outputs for each hidden neuron
+    float hidden_out[NUM_HIDDEN_NEURONS] = {0};
+    for(int i = 0; i < NUM_HIDDEN_NEURONS; i++){
+        // for each hidden neuron we sum the net a1(left sensor) * w1 + a2(right sensor) * w2 - bias and pass through sigmoid
+        float input = (sensor_pair[0] * hidden_neurons[i]->w[0]) + (sensor_pair[1] * hidden_neurons[i]->w[1]) - hidden_neurons[i]->bias;
+        hidden_out[i] = sigmoid(input);
+    }
+
+    // pass through output neurons and get actual
+    float actual_pair[NUM_OUT_NEURONS] = {0};
+    for(int i = 0; i  < NUM_OUT_NEURONS; i++){
+        // for each output neuron we look at the weight with prev linked hidden and multiply with the prev calc output
+        float input = 0;
+        for (int j = 0; j < NUM_HIDDEN_NEURONS; j++){
+            input += hidden_out[j] * output_neurons[i]->w[j];
+        }
+        input += output_neurons[i]->bias;
+        actual_pair[i] = sigmoid(input);
+    }
+
+    // calculate total error why??
+    // float total_error = .5 * (pow((output_pair.left - actual_pair[0]),2) + pow((output_pair.right - actual_pair[1]),2));
+
+    // BACK PROPOGATION
+    // update output weights 
+    for (int i = 0; i < 2; i++){
+        for (int j = 0; j < 3; j++){
+            // for each output neuron(2) for each weight(3) of the output neuron put in a copy struct
+            // storing net values for hidden adjusting
+            out_net[i] = (actual_pair[i] - target_pair[i]) * (actual_pair[i] - (1.0-actual_pair[i]));
+            output_update_neurons[i].w[j] = calculate_output_weight(out_net[i], hidden_out[j], output_neurons[i]->w[j]);
+        }
+        output_update_neurons[i].bias = calculate_output_weight(out_net[i], -1.0, output_neurons[i]->bias);
+    }
+
+    // update hidden weights
+    float sum_out = 0;
+    for (int i = 0; i < NUM_HIDDEN_NEURONS; i ++){
+        for (int j = 0; j < 2; i++){ // number of sensors
+            // for each hidden neuron 3 for each weight 2
+            // IS THIS UPDATE VALUE ???
+            float sum_out = out_net[0]*output_update_neurons[0].w[i] + out_net[1]*output_update_neurons[1].w[i];
+            hidden_update_neurons[i].w[j] = calculate_hidden_weight(sum_out, hidden_out[i], sensor_pair[j], hidden_neurons[i]->w[j]);
+        } 
+        // NO INPUT VAL FOR BIAS ???
+        hidden_update_neurons[i].bias = calculate_hidden_weight(sum_out, hidden_out[i], 0, hidden_neurons[i]->bias);
+    }
     
-    // compute hidden neuron weight and bias x3 store in struct ( " )
-    compute_hidden_neuron(output_pair,h1,&update_h1);
-    compute_hidden_neuron(output_pair,h2,&update_h2);
-    compute_hidden_neuron(output_pair,h3,&update_h3);
 
     // update all 17 weights and biases
-    o1->w1 = update_o1.w1;
-    o1->w2 = update_o1.w2;
-    o1->w3 = update_o1.w3;
-    o1->bias = update_o1.bias;
+    update_all(hidden_neurons,output_neurons,hidden_update_neurons,output_update_neurons);
+}
 
-    o2->w1 = update_o2.w1;
-    o2->w2 = update_o2.w2;
-    o2->w3 = update_o2.w3;
-    o2->bias = update_o2.bias;
+void update_all(HiddenNeuron* hidden_neurons[], OutputNeuron* output_neurons[], HiddenNeuron hidden_update_neurons[], OutputNeuron output_update_neurons[]){
+    // update hidden
+    for (int i = 0; i<NUM_HIDDEN_NEURONS;i++){
+        for (int j = 0; j < 2; j++){ // num sensors
+            hidden_neurons[i]->w[j] = hidden_update_neurons[i].w[j];
+        }
+        hidden_neurons[i]->bias = hidden_update_neurons[i].bias;
+    }
 
-    h1->w1 = update_h1.w1;
-    h1->w2 = update_h1.w2;
-    h1->bias = update_h1.bias;
+    // update output
+    for (int i = 0; i<NUM_OUT_NEURONS;i++){
+        for (int j = 0; j < NUM_HIDDEN_NEURONS; j++){
+            output_neurons[i]->w[j] = output_update_neurons[i].w[j];
+        }
+        output_neurons[i]->bias = output_update_neurons[i].bias;
+    }
+}
 
-    h2->w1 = update_h2.w1;
-    h2->w2 = update_h2.w2;
-    h2->bias = update_h2.bias;
-
-    h3->w1 = update_h3.w1;
-    h3->w2 = update_h3.w2;
-    h3->bias = update_h3.bias;
+float sigmoid(float x) {
+    return (float)(1.0/(1.0 + (float)exp(-x)));
 }
 
 Tuple compute_proportional(int left_val, int right_val) {
@@ -248,7 +346,6 @@ Tuple compute_proportional(int left_val, int right_val) {
    int error = IDEAL - (right_val - left_val);
     // print_value(er);
 
-    //not using rn
    integral = error + integral;
    int derivative  = error - prev_err;
    prev_err = error; 
@@ -267,16 +364,17 @@ Tuple compute_proportional(int left_val, int right_val) {
    return mv;
 }
 
-void init_hidden_neuron(hiddenNeuron *neuron) {
-    neuron->w1 = (float)rand()/RAND_MAX;
-    neuron->w2 = (float)rand()/RAND_MAX;
+void init_hidden_neuron(HiddenNeuron *neuron) {
+    for (int i = 0; i < 2; i++) {
+        neuron->w[i] = (float)rand() / RAND_MAX;
+    }
     neuron->bias = -1.0;
 }
 
-void init_output_neuron(outNeuron *neuron) {
-    neuron->w1 = (float)rand()/RAND_MAX;
-    neuron->w2 = (float)rand()/RAND_MAX;
-    neuron->w3 = (float)rand()/RAND_MAX;
+void init_output_neuron(OutputNeuron *neuron) {
+    for (int i = 0; i < 3; i++) {
+        neuron->w[i] = (float)rand() / RAND_MAX;
+    }
     neuron->bias = -1.0;
 }
 

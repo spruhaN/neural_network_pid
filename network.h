@@ -25,17 +25,12 @@ typedef struct mv{
  * the hidden neuron which should be initialized with random values
 */
 typedef struct HiddenNeuron{
-    float w1;  // left sensor
-    float w2; // right sensor
-    float bias;
-}hiddenNeuron;
+    float w[2], bias;
+}HiddenNeuron;
 
 typedef struct OutputNeuron{
-    float w1; // h1
-    float w2; // h2
-    float w3; // h3
-    float bias;
-}outNeuron;
+    float w[3], bias;
+}OutputNeuron;
 
 typedef struct Node {
     Tuple sensor_values;
