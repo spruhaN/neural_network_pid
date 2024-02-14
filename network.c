@@ -27,6 +27,7 @@ scheduler our_linked_list;
 float integral = 0.0;
 float prev_err = 0.0;
 
+
 int main(void){
     int epoch = 5;
     int button_state = 0;
@@ -101,8 +102,8 @@ int main(void){
                     new_tuple->left = left;
                     new_tuple->right = right;
 
-                    our_linked_list->admit(*new_tuple);
-                    }
+                    round_r->admit(*new_tuple);
+}
                     // once finished -> EPOCH
                 break;
     
@@ -159,9 +160,11 @@ int main(void){
                     // for set epoch
                     for (int e = 0; e<epoch; e++){
                         // for each input pair (scale down 0-1)
-                        for (int i = 0; i< 2; i++){ // change to queue length
+                        for (int i = 0; i< round_r->rr_qlen(); i++){ // change to queue length
                             // dequeue first element in queue store as Tuple
-                            Tuple input_pair;
+                            // sarah use ur queue magic
+                            Tuple input_pair = round_r->dequeue();
+                            round_r->remove();
 
                             // trains neural network and updates all weights and biases need to pass neurons by ref
                             train_neural_network(input_pair, hidden_neurons, output_neurons);
