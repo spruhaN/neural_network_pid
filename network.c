@@ -19,6 +19,7 @@
 #define LEARNING_RATE .003
 #define NUM_OUT_NEURONS 2
 #define NUM_HIDDEN_NEURONS 3
+#define EPOCH_TIME 500
 
 State curr_state = PROPORTIONAL;
 
@@ -29,8 +30,9 @@ float prev_err = 0.0;
 
 
 int main(void){
-    int epoch = 5;
+    int epoch = 10;
     int button_state = 0;
+    int n = 0;
     HiddenNeuron h1,h2,h3;
     OutputNeuron o1,o2;
 
@@ -41,7 +43,9 @@ int main(void){
     // random time seed
     srand(time(NULL));
 
-    while(1){ // do we want while in cases or in state
+    init();
+
+    while(1){
         switch (curr_state){
             case PROPORTIONAL:
                 {
@@ -59,35 +63,38 @@ int main(void){
                     motor(0, motor_values.left);
                     motor(1, motor_values.right);
 
-                    // if button pressed -> DATA (? we need to make sure its properly registered ?) :( no nested func in C
-                    if (get_btn() & (button_state == 0)){ // if button is pressed for the first time
+                    // if button pressed -> DATA
+                    if (get_btn() && (button_state == 0)){ // if button is pressed for the first time
                         button_state = 1;
-                    }else if (!get_btn() & (button_state == 1)){ // if button is released (has been pressed before and is currently not pressed)
+                    }else if (!get_btn() && (button_state == 1)){ // if button is released (has been pressed before and is currently not pressed)
                         button_state = 0;
                         curr_state = DATA;
+                        clear_screen();
+                        // clear screen and print 00 Data
+                        lcd_cursor(0, 0);
+                        print_string("Data");
+
+                        // stops motors
+                        motor(0, 0);
+                        motor(1, 0);
                     }
                 }
+                break;
 
             case DATA:
                 {
-                // clear screen and print 00 Data
-                clear_screen();
-                lcd_cursor(0, 0);
-                print_string("Data");
-
-                // stops motors
-                motor(0, 0);
-                motor(1, 0);
-
-                int n = 0;
-                // repeat 
-                    // print 50 inc 
-                    lcd_cursor(5, 0);
-                    print_num(n);
+                    clear_screen();
 
                     // get sensor data 
                     int left = analog(2);
                     int right = analog(3);
+
+                    // print 50 inc 
+                    lcd_cursor(0, 0);
+                    print_string("Data");
+
+                    lcd_cursor(6,0);
+                    print_num(n);
 
                     // print 01 left sensor 05 right sensor
                     lcd_cursor(0, 1);
@@ -101,27 +108,42 @@ int main(void){
                     //new_tuple = &new_tuple;
                     new_tuple->left = left;
                     new_tuple->right = right;
+                    
+                    //print_value(left, right);
+                    //_delay_ms(1000);
 
                     round_r->admit(*new_tuple);
-}
-                    // once finished -> EPOCH
+
+                    n++;
+
+                    // if button pressed -> EPOCH
+                    for (int i = 0; i < 1000 ; i ++){
+                        if (get_btn() && (button_state == 0)){ // if button is pressed for the first time
+                            button_state = 1;
+                        }else if (!get_btn() && (button_state == 1)){ // if button is released (has been pressed before and is currently not pressed)
+                            button_state = 0;
+                            curr_state = EPOCH;
+                            // clear screen print 00 Training_0
+                            clear_screen();
+                            lcd_cursor(0,0);
+                            print_string("0_Training");
+                        }
+                        _delay_ms(1);
+                    }
+                }
                 break;
-    
             case EPOCH:
                 {
-                    // clear screen print 00 Training_0
-                    clear_screen();
-                    lcd_cursor(0,0);
-                    print_string("Training_0");
-
                     // get accel
                     int y_val = get_accel_y();
 
                     // scale epoch
                     if(y_val > 15 && y_val < 60){ // left
-                        epoch--;
+                        if (epoch > 11){
+                            epoch -= 10;
+                        }
                     }else if(y_val < 235 && y_val > 190){ // right
-                        epoch++;
+                        epoch += 10;
                     }
 
                      // print epoch
@@ -129,25 +151,23 @@ int main(void){
                     print_num(epoch);
 
                     // if button is pressed -> set scaled epoch -> TRAINING
-                    if (get_btn() & (button_state == 0)){ // if button is pressed for the first time
-                        button_state = 1;
-                    }else if (!get_btn() & (button_state == 1)){ // if button is released (has been pressed before and is currently not pressed)
-                        button_state = 0;
-                        curr_state = TRAINING;
+                    for (int i = 0; i<EPOCH_TIME; i++){
+                        if (get_btn() && (button_state == 0)){ // if button is pressed for the first time
+                            button_state = 1;
+                        }else if (!get_btn() && (button_state == 1)){ // if button is released (has been pressed before and is currently not pressed)
+                            button_state = 0;
+                            curr_state = TRAINING;
+                            // clear screen print 00 Training 06 set epoch
+                            clear_screen();
+                            lcd_cursor(0,0);
+                            print_string("Training");
+                        }
+                        _delay_ms(1);
                     }
-
-                    // delay so user gets time to read and change value
-                    _delay_ms(1000);
                 }
                 break;
-
             case TRAINING:
                 {
-                    // clear screen print 00 Training 06 set epoch
-                    clear_screen();
-                    lcd_cursor(0,0);
-                    print_string("Training");
-
                     // init 3 hidden neurons w/ rand w/b (? make global to main ?)
                     init_hidden_neuron(&h1);
                     init_hidden_neuron(&h2);
@@ -158,52 +178,56 @@ int main(void){
                     init_output_neuron(&o2);
 
                     // for set epoch
-                    for (int e = 0; e<epoch; e++){
+                    for (int e = 0; e<3; e++){
                         // for each input pair (scale down 0-1)
-                        for (int i = 0; i< round_r->qlen(); i++){ // change to queue length
+                        for (int i = 0; i<round_r->qlen(); i++){ // change to queue length
                             // dequeue first element in queue store as Tuple
                             // sarah use ur queue magic
                             Tuple input_pair = round_r->dequeue()->sensor_values;
                             round_r->remove();
-
                             // trains neural network and updates all weights and biases need to pass neurons by ref
                             train_neural_network(input_pair, hidden_neurons, output_neurons);
                         }
                     }
+
                     // when finished -> NEURAL or break
                     curr_state = NEURAL;
-                }
 
-            case NEURAL:
-                {
                     // clear screen print 00 Neural
                     clear_screen();
                     lcd_cursor(0,0);
                     print_string("Neural");
+                }
+                break;
+            case NEURAL:
+                {
+                    // // get sensor input scale down to 0-1
+                    // float left_sensor = ((float)analog(2))/255.0;
+                    // float right_sensor = ((float)analog(3))/255.0;
 
-                    // get sensor input scale down to 0-1
-                    float left_sensor = ((float)analog(2))/255.0;
-                    float right_sensor = ((float)analog(3))/255.0;
+                    // // compute_neural_network ==> forward pass
+                    // Tuple input_pair;
+                    // input_pair.left = left_sensor;
+                    // input_pair.right = right_sensor;
+                    // Tuple motor_values = compute_neural_network(input_pair, hidden_neurons, output_neurons);
 
-                    // compute_neural_network ==> forward pass
-                    Tuple input_pair;
-                    input_pair.left = left_sensor;
-                    input_pair.right = right_sensor;
-                    Tuple motor_values = compute_neural_network(input_pair, hidden_neurons, output_neurons);
-
-                    // set motors to sensor output
-                    motor(0,motor_values.left);
-                    motor(1,motor_values.right);
+                    // // set motors to sensor output
+                    // motor(0,motor_values.left);
+                    // motor(1,motor_values.right);
 
                     // if button is pressed -> EPOCH
-                    if (get_btn() & (button_state == 0)){ // if button is pressed for the first time
+                    if (get_btn() && (button_state == 0)){ // if button is pressed for the first time
                             button_state = 1;
-                        }else if (!get_btn() & (button_state == 1)){ // if button is released (has been pressed before and is currently not pressed)
+                        }else if (!get_btn() && (button_state == 1)){ // if button is released (has been pressed before and is currently not pressed)
                             button_state = 0;
-                            curr_state = DATA;
+                            curr_state = EPOCH;
+                            clear_screen();
+                            lcd_cursor(0,0);
+                            print_string("0_Training");
+
                     }
                 }
-
+                break;
             default:
                 // clear screen print 00 Error
                 {
@@ -257,6 +281,13 @@ Tuple compute_neural_network(Tuple input_pair, HiddenNeuron* hidden_neurons[], O
 void train_neural_network(Tuple input_pair, HiddenNeuron* hidden_neurons[], OutputNeuron* output_neurons[]){ // need to pass neurons by reference
     OutputNeuron update_o1, update_o2;
     HiddenNeuron update_h1, update_h2, update_h3;
+
+    init_hidden_neuron(&update_h1);
+    init_hidden_neuron(&update_h2);
+    init_hidden_neuron(&update_h3);
+
+    init_output_neuron(&update_o1);
+    init_output_neuron(&update_o2);
 
     OutputNeuron output_update_neurons[] = {update_o1, update_o2};
     HiddenNeuron hidden_update_neurons[] = {update_h1, update_h2, update_h3};
@@ -470,12 +501,7 @@ void rr_remove() {
 
 // moves queue over
 Tuple rr_next() {
-    if(queue->head){
-        return queue->head->sensor_values;
-    }
-    else{
-        print_string("error");
-    }
+    return queue->head->sensor_values;
 }
 
 // gets length of queue
