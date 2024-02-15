@@ -57,12 +57,13 @@ Tuple rr_next();
 int rr_qlen(void);
 void rr_enqueue(Tuple new);
 struct Node* rr_dequeue();
+void admit_data(int a, int b);
 
 struct Queue *queue;
 extern struct scheduler roundrobin;
 extern scheduler round_r;
 
-Tuple compute_proportional(int left_val, int right_val);
+Tuple compute_proportional(float left_val, float right_val);
 
 int constrain(int value, int minVal, int maxVal);
 
