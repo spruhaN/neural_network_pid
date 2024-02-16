@@ -1,4 +1,3 @@
-
 #include "globals.h"
 #include "network.h"
 
@@ -12,25 +11,39 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-#define Kp .08
+#define Kp .001
 #define Ki 0
 #define Kd 0
 
-#define LEARNING_RATE .003
+#define LEARNING_RATE .15
 #define NUM_OUT_NEURONS 2
 #define NUM_HIDDEN_NEURONS 3
+#define EPOCH_TIME 500
 
-State curr_state = PROPORTIONAL;
+State curr_state = TRAINING;
 
 scheduler our_linked_list;
 
 float integral = 0.0;
 float prev_err = 0.0;
+float hidden_out[NUM_HIDDEN_NEURONS] = {0};
 
+void admit_data(int a, int b){
+    Tuple new;
+    new.left = a;
+    new.right = b;
+    round_r->admit(new);
+}
 
 int main(void){
-    int epoch = 5;
+    // ADDED
+    init();
+    motor(0,0);
+    motor(1,0);
+
+    int epoch = 10;
     int button_state = 0;
+    int n = 0;
     HiddenNeuron h1,h2,h3;
     OutputNeuron o1,o2;
 
@@ -41,182 +54,105 @@ int main(void){
     // random time seed
     srand(time(NULL));
 
-    while(1){ // do we want while in cases or in state
-        switch (curr_state){
-            case PROPORTIONAL:
-                {
-                    // 00 print_string("Proportional")
-                    lcd_cursor(0,0);
-                    print_string("Proportional");
-                    
-                    // get sensor data 
-                    int left_val = analog(2);
-                    int right_val = analog(3);
+    admit_data(5,128);
+    admit_data(6,4);
+    admit_data(4,4);
+//    admit_data(5,4);
+//    admit_data(67,28);
+//    admit_data(5,120);
+//    admit_data(5,122);
+//    admit_data(5,136);
+//    admit_data(159,5);
+//    admit_data(128,4);
+//    admit_data(120,5);
+//    admit_data(5,5);
+//    admit_data(144,5);
+//    admit_data(5,122);
+//    admit_data(7,6);
 
-                    // calls compute_proportional and sets motor
-                    Tuple motor_values = compute_proportional(left_val,right_val);
+    // init 3 hidden neurons w/ rand w/b (? make global to main ?)
+//    init_hidden_neuron(&h1);
+//    init_hidden_neuron(&h2);
+//    init_hidden_neuron(&h3);
+//
+//    // init 2 output neurons (? make global to main ?)
+//    init_output_neuron(&o1);
+//    init_output_neuron(&o2);
 
-                    motor(0, motor_values.left);
-                    motor(1, motor_values.right);
+    // set values instead of random :(
 
-                    // if button pressed -> DATA (? we need to make sure its properly registered ?) :( no nested func in C
-                    if (get_btn() & (button_state == 0)){ // if button is pressed for the first time
-                        button_state = 1;
-                    }else if (!get_btn() & (button_state == 1)){ // if button is released (has been pressed before and is currently not pressed)
-                        button_state = 0;
-                        curr_state = DATA;
-                    }
-                }
+    h1.w[0] = 0.2423;
+    h1.w[1] = 0.6023;
+    h1.bias = 0.6604;
 
-            case DATA:
-                {
-                // clear screen and print 00 Data
-                clear_screen();
-                lcd_cursor(0, 0);
-                print_string("Data");
+    h2.w[0] = 0.8761;
+    h2.w[1] = 0.3045;
+    h2.bias = 0.1245;
 
-                // stops motors
-                motor(0, 0);
-                motor(1, 0);
+    h3.w[0] = 0.0508;
+    h3.w[1] = 0.3376;
+    h3.bias = 0.2635;
 
-                int n = 0;
-                // repeat 
-                    // print 50 inc 
-                    lcd_cursor(5, 0);
-                    print_num(n);
+    o1.w[0] = 0.9528;
+    o1.w[1] = 0.5186;
+    o1.w[2] = 0.2965;
+    o1.bias = 0.5775;
 
-                    // get sensor data 
-                    int left = analog(2);
-                    int right = analog(3);
+    o2.w[0] = 0.2975;
+    o2.w[1] = 0.1967;
+    o2.w[2] = 0.9792;
+    o2.bias = 0.5234;
 
-                    // print 01 left sensor 05 right sensor
-                    lcd_cursor(0, 1);
-                    print_num(left);
 
-                    lcd_cursor(5, 1);
-                    print_num(right);
 
-                    // add Tuple to linked list 
-                    Tuple* new_tuple = (Tuple*)malloc(sizeof(Tuple));
-                    //new_tuple = &new_tuple;
-                    new_tuple->left = left;
-                    new_tuple->right = right;
 
-                    round_r->admit(*new_tuple);
-}
-                    // once finished -> EPOCH
-                break;
-    
-            case EPOCH:
-                {
-                    // clear screen print 00 Training_0
-                    clear_screen();
-                    lcd_cursor(0,0);
-                    print_string("Training_0");
+    // for set epoch
 
-                    // get accel
-                    int y_val = get_accel_y();
+    for (int e = 0; e<50; e++){
+        // for each input pair (scale down 0-1)
+        int len = round_r->qlen();
+        struct Node *saved_head = queue->head;
+        for (int i = 0; i<len; i++){ // change to queue length
+            // dequeue first element in queue store as Tuple
+            Tuple input_pair = round_r->dequeue()->sensor_values;
 
-                    // scale epoch
-                    if(y_val > 15 && y_val < 60){ // left
-                        epoch--;
-                    }else if(y_val < 235 && y_val > 190){ // right
-                        epoch++;
-                    }
-
-                     // print epoch
-                    lcd_cursor(0,1);
-                    print_num(epoch);
-
-                    // if button is pressed -> set scaled epoch -> TRAINING
-                    if (get_btn() & (button_state == 0)){ // if button is pressed for the first time
-                        button_state = 1;
-                    }else if (!get_btn() & (button_state == 1)){ // if button is released (has been pressed before and is currently not pressed)
-                        button_state = 0;
-                        curr_state = TRAINING;
-                    }
-
-                    // delay so user gets time to read and change value
-                    _delay_ms(1000);
-                }
-                break;
-
-            case TRAINING:
-                {
-                    // clear screen print 00 Training 06 set epoch
-                    clear_screen();
-                    lcd_cursor(0,0);
-                    print_string("Training");
-
-                    // init 3 hidden neurons w/ rand w/b (? make global to main ?)
-                    init_hidden_neuron(&h1);
-                    init_hidden_neuron(&h2);
-                    init_hidden_neuron(&h3);
-
-                    // init 2 output neurons (? make global to main ?)
-                    init_output_neuron(&o1);
-                    init_output_neuron(&o2);
-
-                    // for set epoch
-                    for (int e = 0; e<500; e++){
-                        int len = round_r->qlen();
-                        for (int i = 0; i<len; i++){ // queue length
-                            // dequeue first element in queue store as Tuple
-                            Tuple input_pair = round_r->dequeue()->sensor_values;
-
-                            // trains neural network and updates all weights and biases need to pass neurons by ref
-                            train_neural_network(input_pair, hidden_neurons, output_neurons);
-                        }
-                    }
-                    // when finished -> NEURAL or break
-                    curr_state = NEURAL;
-                }
-                break;
-
-            case NEURAL:
-                {
-                    // clear screen print 00 Neural
-                    clear_screen();
-                    lcd_cursor(0,0);
-                    print_string("Neural");
-
-                    // get sensor input scale down to 0-1
-                    float left_sensor = ((float)analog(2))/255.0;
-                    float right_sensor = ((float)analog(3))/255.0;
-
-                    // compute_neural_network ==> forward pass
-                    Tuple input_pair;
-                    input_pair.left = left_sensor;
-                    input_pair.right = right_sensor;
-
-                    Tuple motor_values = compute_neural_network(input_pair, hidden_neurons, output_neurons);
-
-                    motor_values.left = motor_values.left * 100;
-                    motor_values.right = -1 * motor_values.right * 100;
-
-                    // set motors to sensor output
-                    motor(0,motor_values.left);
-                    motor(1,motor_values.right);
-
-                    // if button is pressed -> EPOCH
-                    if (get_btn() & (button_state == 0)){ // if button is pressed for the first time
-                            button_state = 1;
-                        }else if (!get_btn() & (button_state == 1)){ // if button is released (has been pressed before and is currently not pressed)
-                            button_state = 0;
-                            curr_state = DATA;
-                    }
-                }
-                break;
-
-            default:
-                // clear screen print 00 Error
-                {
-                    clear_screen();
-                    lcd_cursor(0,0);
-                    print_string("ERR");
-                }
+            // trains neural network and updates all weights and biases need to pass neurons by ref
+            train_neural_network(input_pair, hidden_neurons, output_neurons);
         }
+        queue->head = saved_head;
     }
+
+
+
+    // sample value
+    Tuple tests;
+    tests.left = 128.0;
+    tests.right = 5.0;
+
+    Tuple motor_target = compute_proportional(tests.left, tests.right);
+
+    // our neural network
+    tests.left = tests.left/255.0;
+    tests.right = tests.right/255.0;
+
+    Tuple motor_actual = compute_neural_network(tests,hidden_neurons,output_neurons);
+    motor_actual.left = motor_actual.left * 100;
+    motor_actual.right = -1 * motor_actual.right * 100;
+
+    uint16_t pid_left = motor_target.left;
+    uint16_t pid_right = motor_target.left;
+    uint16_t neural_left = motor_target.left;
+    uint16_t neural_right = motor_target.left;
+
+    lcd_cursor(0,0);
+    print_num(pid_left);
+    lcd_cursor(5,0);
+    print_num(pid_right);
+    lcd_cursor(0,1);
+    print_num(neural_left);
+    lcd_cursor(5,1);
+    print_num(neural_right);
+
     return 0;
 }
 
@@ -224,6 +160,7 @@ float calculate_output_weight(float net, float hidden_out, float old_weight){
     float sum = net * (hidden_out);
     return old_weight - (LEARNING_RATE * sum);
 }
+
 
 float calculate_hidden_weight(float sum_out, float hidden_out, float input_sensor, float old_weight){
     float sum = sum_out * (hidden_out * (1-hidden_out)) * input_sensor;
@@ -304,7 +241,6 @@ void train_neural_network(Tuple input_pair, HiddenNeuron* hidden_neurons[], Outp
     }
 
     // update hidden weights
-    float sum_out = 0;
     for (int i = 0; i < NUM_HIDDEN_NEURONS; i ++){
         float sum_out = out_net[0]*output_neurons[0]->w[i] + out_net[1]*output_neurons[1]->w[i];
         float ho = hidden_out[i];
@@ -343,28 +279,30 @@ float sigmoid(float x) {
     return (float)(1.0/(1.0 + (float)exp(-x)));
 }
 
-Tuple compute_proportional(int left_val, int right_val) {
-   Tuple mv;
-   // how diff actual pos is from 0(ideal white - white)
-   int error = IDEAL - (right_val - left_val);
+Tuple compute_proportional(float sensor_left, float sensor_right) {
+    float ideal_pos = 0;
+    float actual_pos = sensor_right - sensor_left;
+    // how diff it is from 0(ideal white - white)
+    float error = ideal_pos - actual_pos;
     // print_value(er);
+    //not using rn
+    integral = error + integral;
+    float derivative  = error - prev_err;
+    prev_err = error;
 
-   integral = error + integral;
-   int derivative  = error - prev_err;
-   prev_err = error; 
+    float output = (Kp * error) + (Ki * integral) + (Kd * derivative);
 
-   int output =( Kp * error) + (Ki * integral) + (Kd * derivative);
+    int left_motor = 20 - output;
+    int right_motor = -20 - output;
 
-   int left = 20 - output;
-   int right  = -20 - output;
+    left_motor = constrain(left_motor, 0, 100);
+    right_motor = constrain(right_motor, -100, 0);
 
-   left = constrain(left, 0, 100);
-   right = constrain(right, -100, 0);
+    Tuple motor;
+    motor.left = left_motor;
+    motor.right = right_motor;
 
-   mv.left = left;
-   mv.right = right;
-
-   return mv;
+    return motor;
 }
 
 void init_hidden_neuron(HiddenNeuron *neuron) {
@@ -391,38 +329,31 @@ int constrain(int value, int minVal, int maxVal) {
     }
 }
 
-void motor(u08 num, int8_t speed){
-   int speed_calc = floor(.3*speed + 127);
-   set_servo(num,speed_calc);
-}
+// void motor(u08 num, int8_t speed){
+//    int speed_calc = floor(.3*speed + 127);
+//    set_servo(num,speed_calc);
+// }
 
-void print_value(int val, int val2){
-   char buffer [33];
-   char buffer2 [33];
-   itoa(val, buffer, 10);
-   itoa(val2, buffer2, 10);
-   strcat(buffer, ". ");
-   strcat(buffer2, ". ");
-   lcd_cursor(0,0);
-   print_string(buffer);
-   lcd_cursor(0,1);
-   print_string(buffer2);
-   //_delay_ms(1000);
-   clear_screen();
-}
+// void print_value(int val, int val2){
+//    char buffer [33];
+//    char buffer2 [33];
+//    itoa(val, buffer, 10);
+//    itoa(val2, buffer2, 10);
+//    strcat(buffer, ". ");
+//    strcat(buffer2, ". ");
+//    lcd_cursor(0,0);
+//    print_string(buffer);
+//    lcd_cursor(0,1);
+//    print_string(buffer2);
+//    //_delay_ms(1000);
+//    clear_screen();
+// }
 
 
 
 // LINKED LIST
 
 struct Queue *queue;
-
-void admit_data(int a, int b){
-    Tuple new;
-    new.left = a;
-    new.right = b;
-    round_r->admit(new);
-}
 
 // adds node to tail
 void rr_enqueue(Tuple new) {
@@ -476,12 +407,7 @@ void rr_remove() {
 
 // moves queue over
 Tuple rr_next() {
-    if(queue->head){
-        return queue->head->sensor_values;
-    }
-    else{
-        print_string("error");
-    }
+    return queue->head->sensor_values;
 }
 
 // gets length of queue
@@ -497,3 +423,9 @@ int rr_qlen(void) {
 
 struct scheduler roundrobin = {rr_admit, rr_remove, rr_next, rr_qlen, rr_dequeue};
 scheduler round_r = &roundrobin;
+
+
+void motor(u08 num, int8_t speed){
+   int speed_calc = floor(.3*speed + 127);
+   set_servo(num,speed_calc);
+}
