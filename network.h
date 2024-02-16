@@ -1,10 +1,8 @@
-#include "globals.h"
+
 #include <time.h>
 #include <stdbool.h>
 #include <string.h>
-#include <util/delay.h>
-#include <avr/io.h>
-#include <avr/interrupt.h>
+
 
 # define IDEAL 0
 
@@ -17,8 +15,8 @@ typedef enum {
 } State;
 
 typedef struct mv{
-    int left;
-    int right;
+    float left;
+    float right;
 }Tuple;
 
 /**
@@ -44,11 +42,11 @@ typedef struct Queue {
 
 /* Tuple that describes a scheduler */
 typedef struct scheduler {
-  void   (*admit)(Tuple new);     /* add a Tuple to the pool      */
-  void   (*remove)(); /* remove a Tuple from the pool */
-  Tuple (*next)(void);            /* select a Tuple to schedule   */
-  int    (*qlen)(void);            /* number of ready Tuples       */
-  struct Node* (*dequeue)(void);
+    void   (*admit)(Tuple new);     /* add a Tuple to the pool      */
+    void   (*remove)(); /* remove a Tuple from the pool */
+    Tuple (*next)(void);            /* select a Tuple to schedule   */
+    int    (*qlen)(void);            /* number of ready Tuples       */
+    struct Node* (*dequeue)(void);
 } *scheduler;
 
 void rr_admit(Tuple new);
@@ -62,11 +60,9 @@ struct Queue *queue;
 extern struct scheduler roundrobin;
 extern scheduler round_r;
 
-Tuple compute_proportional(int left_val, int right_val);
+Tuple compute_proportional(float left_val, float right_val);
 
 int constrain(int value, int minVal, int maxVal);
-
-void motor(u08 num, int8_t speed);
 
 void print_value(int val, int val2); // for debugging
 
@@ -81,3 +77,5 @@ Tuple compute_neural_network(Tuple input_pair, HiddenNeuron* hidden_neurons[], O
 void update_all(HiddenNeuron* hidden_neurons[], OutputNeuron* output_neurons[], HiddenNeuron hidden_update_neurons[], OutputNeuron output_update_neurons[]);
 
 float sigmoid(float x);
+
+void motor(u08 num, int8_t speed);
