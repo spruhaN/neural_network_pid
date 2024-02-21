@@ -55,6 +55,7 @@ Tuple rr_next();
 int rr_qlen(void);
 void rr_enqueue(Tuple new);
 struct Node* rr_dequeue();
+void admit_data(int a, int b);
 
 struct Queue *queue;
 extern struct scheduler roundrobin;
@@ -78,4 +79,4 @@ void update_all(HiddenNeuron* hidden_neurons[], OutputNeuron* output_neurons[], 
 
 float sigmoid(float x);
 
-void motor(u08 num, int8_t speed);
+void motor(int num, int8_t speed);

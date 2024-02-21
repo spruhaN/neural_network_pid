@@ -12,7 +12,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-#define Kp .1
+#define Kp .15
 #define Ki 0
 #define Kd 0
 
@@ -35,7 +35,7 @@ int main(void){
     motor(0,0);
     motor(1,0);
 
-    int epoch = 10;
+    int epoch = 0;
     int button_state = 0;
     int n = 0;
     HiddenNeuron h1,h2,h3;
@@ -86,23 +86,48 @@ int main(void){
 
             case DATA:
                 {
-                    // set data
+                    //set data
                     // admit_data(5,128);
                     // admit_data(6,4);
+                    // admit_data(10,4);
+                    // admit_data(135,5);
+                    // admit_data(122,4);
+                    // admit_data(143,5);
+                    // admit_data(129,5);
                     // admit_data(4,4);
-                    // _delay_ms(1000);
+                    // admit_data(5,4);
+                    // admit_data(5,5);
+                    // admit_data(5,6);
+                    // admit_data(5,47);
+                    // admit_data(5,67);
+                    // admit_data(5,113);
+                    // admit_data(67,28);
+                    // admit_data(5,110);
+                    // admit_data(5,119);
+                    // admit_data(5,136);
+                    // admit_data(5,122);
+                    // admit_data(5,5);
+                    // admit_data(5,4);
+                    // admit_data(129,5);
+                    // admit_data(128,4);
+                    // admit_data(120,5);
+                    // admit_data(144,5);
+                    // admit_data(5,5);
+                    // admit_data(7,6);
+                    // admit_data(5,4);
                     // curr_state = EPOCH;
 
-                    //clear_screen();
+                    // // get sensor data 
 
-                    // get sensor data 
+                    clear_screen();
+
                     int left = analog(2);
                     int right = analog(3);
 
 
                     admit_data(left,right);
 
-                    // print 01 left sensor 05 right sensor
+                    // // print 01 left sensor 05 right sensor
                     lcd_cursor(0,0);
                     print_string("Data");
 
@@ -116,11 +141,9 @@ int main(void){
                     print_num(right);
 
                     n++;
-                    _delay_ms(100);
-                    clear_screen();
                     
                     // if button pressed -> EPOCH
-                    for (int i = 0; i < 100 ; i ++){
+                    for (int i = 0; i < 500 ; i ++){
                         if (get_btn() && (button_state == 0)){ // if button is pressed for the first time
                             button_state = 1;
                         }else if (!get_btn() && (button_state == 1)){ // if button is released (has been pressed before and is currently not pressed)
@@ -130,12 +153,17 @@ int main(void){
                             clear_screen();
                             lcd_cursor(0,0);
                             print_string("Epoch");
+
+                            // stops motors
+                            motor(0, 0);
+                            motor(1, 0);
                         }
                         _delay_ms(1);
                     }
                 }
                 break;
             case EPOCH:
+
                 {
                     // get accel
                     int y_val = get_accel_y();
@@ -143,10 +171,10 @@ int main(void){
                     // scale epoch
                     if(y_val > 15 && y_val < 60){ // left
                         if (epoch > 11){
-                            epoch -= 10;
+                            epoch -= 50;
                         }
                     }else if(y_val < 235 && y_val > 190){ // right
-                        epoch += 10;
+                        epoch += 50;
                     }
 
                      // print epoch
@@ -162,8 +190,8 @@ int main(void){
                             curr_state = TRAINING;
                             // clear screen print 00 Training 06 set epoch
                             clear_screen();
-                            lcd_cursor(0,0);
-                            print_string("Training");
+                            //lcd_cursor(0,0);
+                            //print_string("Training");
                         }
                         _delay_ms(1);
                     }
@@ -180,46 +208,15 @@ int main(void){
                     init_output_neuron(&o1);
                     init_output_neuron(&o2);
 
-                    // // for set epoch
-                    // for (int e = 0; e<3; e++){
-                    //     // for each input pair (scale down 0-1)
-                    //     for (int i = 0; i<round_r->qlen(); i++){ // change to queue length
-                    //         // dequeue first element in queue store as Tuple
-                    //         // sarah use ur queue magic
-                    //         Tuple input_pair = round_r->dequeue()->sensor_values;
-                    //         round_r->remove();
-                    //         // trains neural network and updates all weights and biases need to pass neurons by ref
-                    //         train_neural_network(input_pair, hidden_neurons, output_neurons);
-                    //     }
-                    // }
-
-                    // h1.w[0] = 0.2423;
-                    // h1.w[1] = 0.6023;
-                    // h1.bias = 0.6604;
-
-                    // h2.w[0] = 0.8761;
-                    // h2.w[1] = 0.3045;
-                    // h2.bias = 0.1245;
-
-                    // h3.w[0] = 0.0508;
-                    // h3.w[1] = 0.3376;
-                    // h3.bias = 0.2635;
-
-                    // o1.w[0] = 0.9528;
-                    // o1.w[1] = 0.5186;
-                    // o1.w[2] = 0.2965;
-                    // o1.bias = 0.5775;
-
-                    // o2.w[0] = 0.2975;
-                    // o2.w[1] = 0.1967;
-                    // o2.w[2] = 0.9792;
-                    // o2.bias = 0.5234;
-
                     for (int e = 0; e<epoch; e++){
                         // for each input pair (scale down 0-1)
+                        lcd_cursor(0,0);
+                        print_string("Training");
+                        lcd_cursor(0,1);
+                        print_num(e);
                         int len = round_r->qlen();
                         struct Node *saved_head = queue->head;
-                        for (int i = 0; i<len; i++){ // change to queue length
+                        for (int i = 0; i<len-1; i++){ // change to queue length
                             // dequeue first element in queue store as Tuple
                             Tuple input_pair = round_r->dequeue()->sensor_values;
 
@@ -227,6 +224,7 @@ int main(void){
                             train_neural_network(input_pair, hidden_neurons, output_neurons);
                         }
                         queue->head = saved_head;
+                        clear_screen();
                     }
 
                     // when finished -> NEURAL or break
@@ -234,46 +232,36 @@ int main(void){
 
                     // clear screen print 00 Neural
                     clear_screen();
-                    //lcd_cursor(0,0);
-                    //print_string("Neural");
+                    lcd_cursor(0,0);
+                    print_string("Neural");
                 }
                 break;
             case NEURAL:
                 {
-                    // Tuple tests;
-                    // tests.left = 128.0;
-                    // tests.right = 5.0;
+                    // clear_screen();
+                    Tuple neural;
+                    Tuple input_val;
+                    input_val.left = analog(2);
+                    input_val.right = analog(3);
 
-                    Tuple sensor;
-                    float left_in = analog(2);
-                    float right_in = analog(3);
-                    
-                    Tuple motor_target = compute_proportional(left_in, right_in);
+                    Tuple proportional_out  = compute_proportional(input_val.left,input_val.right);
+                    neural.left = input_val.left/255;
+                    neural.right = input_val.right/255;
+                    Tuple neural_net_out  = compute_neural_network(neural,hidden_neurons,output_neurons);
+                    int left_out = (int) (neural_net_out.left * 100);
+                    int right_out = (int) (neural_net_out.right * -100);
 
-                    // our neural network
-                    sensor.left = left_in/255.0;
-                    sensor.right = right_in/255.0;
+                    // lcd_cursor(0,0);
+                    // print_num(proportional_out.left); // top left
+                    // lcd_cursor(6,0);
+                    // print_num(-1 * proportional_out.right);
+                    // lcd_cursor(0,1);
+                    // print_num(left_out); // bottom left
+                    // lcd_cursor(6,1);
+                    // print_num(-1 * right_out);
 
-                    Tuple motor_actual = compute_neural_network(sensor,hidden_neurons,output_neurons);
-                    motor_actual.left = motor_actual.left * 100;
-                    motor_actual.right = -1 * motor_actual.right * 100;
-
-                    uint16_t pid_left = motor_target.left;
-                    uint16_t pid_right = -1 * motor_target.right;
-                    uint16_t neural_left = motor_actual.left;
-                    uint16_t neural_right = -1 * motor_actual.right;
-
-                    clear_screen();
-                    lcd_cursor(0,0);
-                    print_num(pid_left);
-                    lcd_cursor(5,0);
-                    print_num(pid_right);
-                    lcd_cursor(0,1);
-                    print_num(neural_left);
-                    lcd_cursor(5,1);
-                    print_num(neural_right);
-
-                    _delay_ms(1000);
+                    motor(0,left_out);
+                    motor(1,right_out);
 
                     //motor(0,pid_left);
                     //motor(1,-1 * pid_right);
@@ -286,8 +274,11 @@ int main(void){
                             curr_state = EPOCH;
                             clear_screen();
                             lcd_cursor(0,0);
-                            print_string("0_Training");
+                            print_string("Epoch");
 
+                            // stops motors
+                            motor(0, 0);
+                            motor(1, 0);
                     }
                     
                     // // get sensor input scale down to 0-1
