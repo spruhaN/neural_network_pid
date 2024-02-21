@@ -11,14 +11,16 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
-#define Kp .001
+#define Kp .1
 #define Ki 0
 #define Kd 0
 
-#define LEARNING_RATE .15
+#define LEARNING_RATE .3
 #define NUM_OUT_NEURONS 2
 #define NUM_HIDDEN_NEURONS 3
 #define EPOCH_TIME 500
+
+#define EPOCH 1000
 
 State curr_state = TRAINING;
 
@@ -28,6 +30,7 @@ float integral = 0.0;
 float prev_err = 0.0;
 float hidden_out[NUM_HIDDEN_NEURONS] = {0};
 
+
 void admit_data(int a, int b){
     Tuple new;
     new.left = a;
@@ -36,7 +39,6 @@ void admit_data(int a, int b){
 }
 
 int main(void){
-    // ADDED
     init();
     motor(0,0);
     motor(1,0);
@@ -44,6 +46,7 @@ int main(void){
     int epoch = 10;
     int button_state = 0;
     int n = 0;
+    Tuple input_list[27][3];
     HiddenNeuron h1,h2,h3;
     OutputNeuron o1,o2;
 
@@ -54,105 +57,142 @@ int main(void){
     // random time seed
     srand(time(NULL));
 
+
+
     admit_data(5,128);
     admit_data(6,4);
+    admit_data(10,4);
+    admit_data(135,5);
+    admit_data(122,4);
+    admit_data(143,5);
+    admit_data(129,5);
     admit_data(4,4);
-//    admit_data(5,4);
-//    admit_data(67,28);
-//    admit_data(5,120);
-//    admit_data(5,122);
-//    admit_data(5,136);
-//    admit_data(159,5);
-//    admit_data(128,4);
-//    admit_data(120,5);
-//    admit_data(5,5);
-//    admit_data(144,5);
-//    admit_data(5,122);
-//    admit_data(7,6);
+    admit_data(5,4);
+    admit_data(5,5);
+    admit_data(5,6);
+    admit_data(5,47);
+    admit_data(5,67);
+    admit_data(5,113);
+    admit_data(67,28);
+    admit_data(5,110);
+    admit_data(5,119);
+    admit_data(5,136);
+    admit_data(5,122);
+    admit_data(5,5);
+    admit_data(5,4);
+    admit_data(129,5);
+    admit_data(128,4);
+    admit_data(120,5);
+    admit_data(144,5);
+    admit_data(5,5);
+    admit_data(7,6);
+    admit_data(5,4); //inv
 
     // init 3 hidden neurons w/ rand w/b (? make global to main ?)
-//    init_hidden_neuron(&h1);
-//    init_hidden_neuron(&h2);
-//    init_hidden_neuron(&h3);
+    init_hidden_neuron(&h1);
+    init_hidden_neuron(&h2);
+    init_hidden_neuron(&h3);
 //
 //    // init 2 output neurons (? make global to main ?)
-//    init_output_neuron(&o1);
-//    init_output_neuron(&o2);
+    init_output_neuron(&o1);
+    init_output_neuron(&o2);
 
     // set values instead of random :(
 
-    h1.w[0] = 0.2423;
-    h1.w[1] = 0.6023;
-    h1.bias = 0.6604;
-
-    h2.w[0] = 0.8761;
-    h2.w[1] = 0.3045;
-    h2.bias = 0.1245;
-
-    h3.w[0] = 0.0508;
-    h3.w[1] = 0.3376;
-    h3.bias = 0.2635;
-
-    o1.w[0] = 0.9528;
-    o1.w[1] = 0.5186;
-    o1.w[2] = 0.2965;
-    o1.bias = 0.5775;
-
-    o2.w[0] = 0.2975;
-    o2.w[1] = 0.1967;
-    o2.w[2] = 0.9792;
-    o2.bias = 0.5234;
-
+//    h1.w[0] = 0.2423;
+//    h1.w[1] = 0.6023;
+//    h1.bias = 0.6604;
+//
+//    h2.w[0] = 0.8761;
+//    h2.w[1] = 0.3045;
+//    h2.bias = 0.1245;
+//
+//    h3.w[0] = 0.0508;
+//    h3.w[1] = 0.3376;
+//    h3.bias = 0.2635;
+//
+//    o1.w[0] = 0.9528;
+//    o1.w[1] = 0.5186;
+//    o1.w[2] = 0.2965;
+//    o1.bias = 0.5775;
+//
+//    o2.w[0] = 0.2975;
+//    o2.w[1] = 0.1967;
+//    o2.w[2] = 0.9792;
+//    o2.bias = 0.5234;
 
 
 
     // for set epoch
-
-    for (int e = 0; e<50; e++){
+    for (int e = 0; e<EPOCH; e++){
         // for each input pair (scale down 0-1)
+        print_num(e);
         int len = round_r->qlen();
         struct Node *saved_head = queue->head;
-        for (int i = 0; i<len; i++){ // change to queue length
+        for (int i = 0; i<len-1; i++){ // change to queue length
             // dequeue first element in queue store as Tuple
             Tuple input_pair = round_r->dequeue()->sensor_values;
+            input_list[i][0] = input_pair;
 
             // trains neural network and updates all weights and biases need to pass neurons by ref
+            // pass in 0-255 sensor
             train_neural_network(input_pair, hidden_neurons, output_neurons);
         }
         queue->head = saved_head;
+        clear_screen();
     }
 
+    // for (int i = 0; i<27; i++){
+    //     Tuple neural;
+    //     Tuple input_val = input_list[i][0];
+    //     input_list[i][1] = compute_proportional(input_val.left,input_val.right);
+        
+    //     neural.left = input_val.left/255;
+    //     neural.right = input_val.right/255;
+    //     input_list[i][2] = compute_neural_network(neural,hidden_neurons,output_neurons);
+    //     input_list[i][2].left = (int) (input_list[i][2].left * 100);
+    //     input_list[i][2].right = (int) (input_list[i][2].right * -100);
 
+    //     lcd_cursor(0,0);
+    //     print_num(input_list[i][1].left); // top left
+    //     lcd_cursor(6,0);
+    //     print_num(-1 * input_list[i][1].right);
+    //     lcd_cursor(0,1);
+    //     print_num(input_list[i][2].left); // bottom left
+    //     lcd_cursor(6,1);
+    //     print_num(-1 * input_list[i][2].right);
 
-    // sample value
-    Tuple tests;
-    tests.left = 128.0;
-    tests.right = 5.0;
+    //     _delay_ms(3000);
+    //     clear_screen();
+    // }
+    //print_string("TEST");
+    
+    while(1){
+        clear_screen();
+        Tuple neural;
+        Tuple input_val;
+        input_val.left = analog(2);
+        input_val.right = analog(3);
 
-    Tuple motor_target = compute_proportional(tests.left, tests.right);
+        Tuple proportional_out  = compute_proportional(input_val.left,input_val.right);
+        neural.left = input_val.left/255;
+        neural.right = input_val.right/255;
+        Tuple neural_net_out  = compute_neural_network(neural,hidden_neurons,output_neurons);
+        int left_out = (int) (neural_net_out.left * 100);
+        int right_out = (int) (neural_net_out.right * -100);
 
-    // our neural network
-    tests.left = tests.left/255.0;
-    tests.right = tests.right/255.0;
+        lcd_cursor(0,0);
+        print_num(proportional_out.left); // top left
+        lcd_cursor(6,0);
+        print_num(-1 * proportional_out.right);
+        lcd_cursor(0,1);
+        print_num(left_out); // bottom left
+        lcd_cursor(6,1);
+        print_num(-1 * right_out);
 
-    Tuple motor_actual = compute_neural_network(tests,hidden_neurons,output_neurons);
-    motor_actual.left = motor_actual.left * 100;
-    motor_actual.right = -1 * motor_actual.right * 100;
-
-    uint16_t pid_left = motor_target.left;
-    uint16_t pid_right = motor_target.left;
-    uint16_t neural_left = motor_target.left;
-    uint16_t neural_right = motor_target.left;
-
-    lcd_cursor(0,0);
-    print_num(pid_left);
-    lcd_cursor(5,0);
-    print_num(pid_right);
-    lcd_cursor(0,1);
-    print_num(neural_left);
-    lcd_cursor(5,1);
-    print_num(neural_right);
-
+        motor(0,left_out);
+        motor(1,right_out);
+    }
     return 0;
 }
 
@@ -305,6 +345,8 @@ Tuple compute_proportional(float sensor_left, float sensor_right) {
     return motor;
 }
 
+
+
 void init_hidden_neuron(HiddenNeuron *neuron) {
     for (int i = 0; i < 2; i++) {
         neuron->w[i] = (float)rand() / RAND_MAX;
@@ -329,10 +371,10 @@ int constrain(int value, int minVal, int maxVal) {
     }
 }
 
-// void motor(u08 num, int8_t speed){
-//    int speed_calc = floor(.3*speed + 127);
-//    set_servo(num,speed_calc);
-// }
+void motor(int num, int8_t speed){
+   int speed_calc = floor(.3*speed + 127);
+   set_servo(num,speed_calc);
+}
 
 // void print_value(int val, int val2){
 //    char buffer [33];
@@ -423,9 +465,3 @@ int rr_qlen(void) {
 
 struct scheduler roundrobin = {rr_admit, rr_remove, rr_next, rr_qlen, rr_dequeue};
 scheduler round_r = &roundrobin;
-
-
-void motor(u08 num, int8_t speed){
-   int speed_calc = floor(.3*speed + 127);
-   set_servo(num,speed_calc);
-}
